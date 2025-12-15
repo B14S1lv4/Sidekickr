@@ -29,6 +29,7 @@ ACS.lastCheckTime = 0
 ACS.isRetryMode = false
 ACS.stationaryStartTime = nil
 ACS.currentCompanion = nil  -- Track currently summoned companion
+ACS.pendingCompanion = nil  -- Companion waiting to be summoned on next target change
 
 -- Frame for events and updates
 local frame = CreateFrame("Frame")
@@ -103,10 +104,25 @@ function ACS:SummonRandomCompanion()
     local randomIndex = math.random(1, table.getn(availableCompanions))
     local companionName = availableCompanions[randomIndex]
     
+    -- Can't cast directly - requires hardware event
+    -- Set pending companion to be cast on next target change
+    self.pendingCompanion = companionName
+    
+    DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Ready to summon: " .. companionName .. " (change targets to cast)")
+end
+
+-- Actually cast the pending companion (called from hardware event)
+function ACS:CastPendingCompanion()
+    if not self.pendingCompanion then
+        return
+    end
+    
+    local companionName = self.pendingCompanion
     CastSpellByName(companionName)
     
     -- Update current companion
     self.currentCompanion = companionName
+    self.pendingCompanion = nil
     
     DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Summoned: " .. companionName)
 end
@@ -164,6 +180,7 @@ end)
 
 -- Initialize
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:SetScript("OnEvent", function()
     if event == "PLAYER_ENTERING_WORLD" then
         ACS.lastCheckTime = GetTime()
@@ -174,6 +191,9 @@ frame:SetScript("OnEvent", function()
         
         -- Seed random number generator
         math.randomseed(GetTime())
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        -- Cast pending companion when player changes target (hardware event)
+        ACS:CastPendingCompanion()
     end
 end)
 
