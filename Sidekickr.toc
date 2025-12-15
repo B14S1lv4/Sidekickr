@@ -1,7 +1,8 @@
 ## Interface: 11200
-## Title: Auto Companion Summoner
+## Title: Sidekickr
 ## Notes: Automatically summons a random companion every 15 minutes when stationary
 ## Author: YourName
-## Version: 1.0
+## Version: 2.0
+## SavedVariables: SidekickrWeights
 
 Sidekickr.lua
