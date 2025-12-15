@@ -180,7 +180,7 @@ function ACS:PickWeightedCompanion(excludeName)
 end
 
 -- Summon a random companion
-function ACS:SummonRandomCompanion()
+function ACS:SummonRandomCompanion(force)
     -- Use weighted random selection, excluding current companion
     local companionName = self:PickWeightedCompanion(self.currentCompanion)
     
@@ -372,7 +372,7 @@ frame:SetScript("OnEvent", function()
         
         if numFound > 0 then
             DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Loaded! Found " .. numFound .. " companions. Will check every 15 minutes.")
-            DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Use /acs list to see companions, /acs set <name> <weight> to adjust.")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Use /acs scan to see companions, /acs set <name> <weight> to adjust.")
         else
             DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000[Sidekickr]|r Warning: No companion spells found in spellbook!")
         end
@@ -431,7 +431,6 @@ SlashCmdList["AUTOCOMPANION"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  /acs summon - Manually summon a random companion")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs queue - Queue companion to summon on next target change")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs scan - Scan spellbook and list found companions")
-        DEFAULT_CHAT_FRAME:AddMessage("  /acs list - List all companions and their weights")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs set <name> <weight> - Set companion weight (0-10)")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs check - Check current status")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs reset - Reset the 15-minute timer")
