@@ -41,49 +41,40 @@ function ACS:ScanSpellbook()
     -- Get the number of spell tabs
     local numTabs = GetNumSpellTabs()
     
-    -- Iterate through all spell tabs
+    -- Find the companion tab by name
+    local companionTab = nil
     for tab = 1, numTabs do
-        local name, texture, offset, numSpells = GetSpellTabInfo(tab)
+        local tabName, texture, offset, numSpells = GetSpellTabInfo(tab)
         
-        -- Iterate through all spells in this tab
-        for i = 1, numSpells do
-            local spellIndex = offset + i
-            local spellName, spellRank = GetSpellName(spellIndex, BOOKTYPE_SPELL)
-            
-            if spellName then
-                -- Get spell texture to help identify companions
-                local spellTexture = GetSpellTexture(spellIndex, BOOKTYPE_SPELL)
-                
-                -- Check if this is a companion spell
-                -- Companions typically have "Summon" in the name or are in a specific category
-                -- We'll look for spells that match your known companion names or patterns
-                local isCompanion = false
-                
-                -- Check against known companion names (for validation)
-                local knownCompanions = {
-                    "Baby Shark",
-                    "Blitzen",
-                    "Hawksbill Snapjaw",
-                    "Hadwig",
-                    "Loggerhead Snapjaw",
-                    "Moonkin Hatchling",
-                    "Olive Snapjaw",
-                    "Wally",
-                    "Webwood Hatchling"
-                }
-                
-                for _, knownName in ipairs(knownCompanions) do
-                    if spellName == knownName then
-                        isCompanion = true
-                        break
-                    end
-                end
-                
-                -- Add to companions list if identified
-                if isCompanion then
-                    table.insert(self.companions, spellName)
-                end
+        -- Check if this is the companion tab (case insensitive)
+        if tabName then
+            local lowerName = string.lower(tabName)
+            -- Look for "companion", "pet", "minion" etc.
+            if string.find(lowerName, "companion") or 
+               string.find(lowerName, "pet") or
+               string.find(lowerName, "minion") then
+                companionTab = tab
+                DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Found companion tab: " .. tabName)
+                break
             end
+        end
+    end
+    
+    if not companionTab then
+        DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000[Sidekickr]|r Warning: Could not find companion tab!")
+        return 0
+    end
+    
+    -- Scan all spells in the companion tab
+    local tabName, texture, offset, numSpells = GetSpellTabInfo(companionTab)
+    
+    for i = 1, numSpells do
+        local spellIndex = offset + i
+        local spellName, spellRank = GetSpellName(spellIndex, BOOKTYPE_SPELL)
+        
+        if spellName then
+            -- Add all spells from the companion tab
+            table.insert(self.companions, spellName)
         end
     end
     
