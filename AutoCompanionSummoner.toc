@@ -1,0 +1,7 @@
+## Interface: 11200
+## Title: Auto Companion Summoner
+## Notes: Automatically summons a random companion every 15 minutes when stationary
+## Author: YourName
+## Version: 1.0
+
+AutoCompanionSummoner.lua
