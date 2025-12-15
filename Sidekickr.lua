@@ -21,6 +21,7 @@ ACS.companions = {
 ACS.MAIN_CHECK_INTERVAL = 15 * 60  -- 15 minutes in seconds
 ACS.RETRY_CHECK_INTERVAL = 15      -- 15 seconds
 ACS.STATIONARY_TIME = 1            -- 1 second to confirm stationary
+ACS.DEFAULT_WEIGHT = 1             -- Default weight for new companions
 
 -- State variables
 ACS.lastX = nil
@@ -54,6 +55,7 @@ function ACS:ScanSpellbook()
                string.find(lowerName, "pet") or
                string.find(lowerName, "minion") then
                 companionTab = tab
+                ACS.companionTabIndex = tab
                 DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Found companion tab: " .. tabName)
                 break
             end
@@ -75,6 +77,14 @@ function ACS:ScanSpellbook()
         if spellName then
             -- Add all spells from the companion tab
             table.insert(self.companions, spellName)
+            
+            -- Initialize weight if not set
+            if not SidekickrWeights then
+                SidekickrWeights = {}
+            end
+            if not SidekickrWeights[spellName] then
+                SidekickrWeights[spellName] = self.DEFAULT_WEIGHT
+            end
         end
     end
     
@@ -130,26 +140,49 @@ function ACS:IsStationary()
     return stationaryDuration >= self.STATIONARY_TIME
 end
 
--- Summon a random companion
-function ACS:SummonRandomCompanion()
-    -- Summoning a new companion automatically dismisses the old one
-    -- BUT if we summon the same one, it dismisses it instead!
-    -- So we need to pick a different companion than the current one
-    
+-- Weighted random selection
+function ACS:PickWeightedCompanion(excludeName)
     local availableCompanions = {}
+    local totalWeight = 0
+    
+    -- Build list of available companions with their weights
     for _, companionName in ipairs(self.companions) do
-        if companionName ~= self.currentCompanion then
-            table.insert(availableCompanions, companionName)
+        if companionName ~= excludeName then
+            local weight = SidekickrWeights[companionName] or self.DEFAULT_WEIGHT
+            if weight > 0 then  -- Only include companions with positive weight
+                table.insert(availableCompanions, {name = companionName, weight = weight})
+                totalWeight = totalWeight + weight
+            end
         end
     end
     
-    -- If no available companions (shouldn't happen with 9 companions), use all
+    -- If no available companions, use all with equal weight
     if table.getn(availableCompanions) == 0 then
-        availableCompanions = self.companions
+        for _, companionName in ipairs(self.companions) do
+            table.insert(availableCompanions, {name = companionName, weight = 1})
+            totalWeight = totalWeight + 1
+        end
     end
     
-    local randomIndex = math.random(1, table.getn(availableCompanions))
-    local companionName = availableCompanions[randomIndex]
+    -- Weighted random selection
+    local roll = math.random() * totalWeight
+    local cumulative = 0
+    
+    for _, companion in ipairs(availableCompanions) do
+        cumulative = cumulative + companion.weight
+        if roll <= cumulative then
+            return companion.name
+        end
+    end
+    
+    -- Fallback (shouldn't happen)
+    return availableCompanions[1].name
+end
+
+-- Summon a random companion
+function ACS:SummonRandomCompanion()
+    -- Use weighted random selection, excluding current companion
+    local companionName = self:PickWeightedCompanion(self.currentCompanion)
     
     -- Can't cast directly - requires hardware event
     -- Set pending companion to be cast on next target change
@@ -225,9 +258,173 @@ frame:SetScript("OnUpdate", function()
     end
 end)
 
+-- Create weight config UI
+function ACS:CreateConfigUI()
+    if ACS.configFrame then
+        return
+    end
+    
+    local frame = CreateFrame("Frame", "SidekickrConfigFrame", UIParent)
+    frame:SetWidth(400)
+    frame:SetHeight(500)
+    frame:SetPoint("CENTER")
+    frame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 }
+    })
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", function() this:StartMoving() end)
+    frame:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+    frame:Hide()
+    
+    -- Title
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", 0, -20)
+    title:SetText("Sidekickr - Companion Weights")
+    
+    -- Scroll frame for companions
+    local scrollFrame = CreateFrame("ScrollFrame", "SidekickrScrollFrame", frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 20, -50)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -40, 50)
+    
+    local scrollChild = CreateFrame("Frame", "SidekickrScrollChild", scrollFrame)
+    scrollChild:SetWidth(320)
+    scrollChild:SetHeight(1)
+    scrollFrame:SetScrollChild(scrollChild)
+    
+    frame.scrollChild = scrollChild
+    frame.sliders = {}
+    
+    -- Close button
+    local closeBtn = CreateFrame("Button", nil, frame, "GameMenuButtonTemplate")
+    closeBtn:SetPoint("BOTTOM", 0, 20)
+    closeBtn:SetWidth(100)
+    closeBtn:SetHeight(25)
+    closeBtn:SetText("Close")
+    closeBtn:SetScript("OnClick", function() frame:Hide() end)
+    
+    ACS.configFrame = frame
+end
+
+function ACS:ShowConfigUI()
+    if not self.configFrame then
+        self:CreateConfigUI()
+    end
+    
+    -- Clear old sliders
+    for _, slider in ipairs(self.configFrame.sliders) do
+        slider:Hide()
+    end
+    self.configFrame.sliders = {}
+    
+    -- Create sliders for each companion
+    local yOffset = -10
+    for i, companionName in ipairs(self.companions) do
+        local weight = SidekickrWeights[companionName] or self.DEFAULT_WEIGHT
+        
+        -- Companion name
+        local nameText = self.configFrame.scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        nameText:SetPoint("TOPLEFT", 10, yOffset)
+        nameText:SetText(companionName)
+        
+        -- Weight slider
+        local slider = CreateFrame("Slider", "SidekickrSlider"..i, self.configFrame.scrollChild, "OptionsSliderTemplate")
+        slider:SetPoint("TOPLEFT", 10, yOffset - 20)
+        slider:SetWidth(250)
+        slider:SetMinMaxValues(0, 10)
+        slider:SetValueStep(0.1)
+        slider:SetValue(weight)
+        slider:SetObeyStepOnDrag(true)
+        
+        -- Value text
+        local valueText = self.configFrame.scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        valueText:SetPoint("LEFT", slider, "RIGHT", 10, 0)
+        valueText:SetText(string.format("%.1f", weight))
+        
+        slider:SetScript("OnValueChanged", function()
+            local val = this:GetValue()
+            valueText:SetText(string.format("%.1f", val))
+            SidekickrWeights[companionName] = val
+            ACS:UpdateSpellbookOverlays()
+        end)
+        
+        table.insert(self.configFrame.sliders, slider)
+        table.insert(self.configFrame.sliders, nameText)
+        table.insert(self.configFrame.sliders, valueText)
+        
+        yOffset = yOffset - 60
+    end
+    
+    self.configFrame.scrollChild:SetHeight(math.abs(yOffset) + 20)
+    self.configFrame:Show()
+end
+
+-- Hook spellbook to show weights
+function ACS:HookSpellbook()
+    -- Hook the spellbook button updates
+    local oldSpellButton_UpdateButton = SpellButton_UpdateButton
+    SpellButton_UpdateButton = function()
+        oldSpellButton_UpdateButton()
+        ACS:UpdateSpellbookOverlays()
+    end
+end
+
+function ACS:UpdateSpellbookOverlays()
+    if not SpellBookFrame:IsVisible() then
+        return
+    end
+    
+    -- Check if we're on the companion tab
+    local currentTab = SpellFrame_GetCurrentPage and SpellFrame_GetCurrentPage() or 1
+    
+    for i = 1, SPELLS_PER_PAGE do
+        local button = getglobal("SpellButton"..i)
+        if button and button:IsVisible() then
+            local spellIndex = SpellBook_GetSpellID(i)
+            local spellName = GetSpellName(spellIndex, BOOKTYPE_SPELL)
+            
+            if spellName and SidekickrWeights[spellName] then
+                -- Create or update weight text
+                local weightText = getglobal("SpellButton"..i.."SidekickrWeight")
+                if not weightText then
+                    weightText = button:CreateFontString("SpellButton"..i.."SidekickrWeight", "OVERLAY", "NumberFontNormalLarge")
+                    weightText:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -5, 5)
+                end
+                
+                local weight = SidekickrWeights[spellName]
+                weightText:SetText(string.format("%.1f", weight))
+                
+                -- Color based on weight
+                if weight == 0 then
+                    weightText:SetTextColor(1, 0, 0)  -- Red for disabled
+                elseif weight < 1 then
+                    weightText:SetTextColor(1, 1, 0)  -- Yellow for low
+                elseif weight > 1 then
+                    weightText:SetTextColor(0, 1, 0)  -- Green for high
+                else
+                    weightText:SetTextColor(1, 1, 1)  -- White for default
+                end
+                
+                weightText:Show()
+            else
+                -- Hide weight text for non-companion spells
+                local weightText = getglobal("SpellButton"..i.."SidekickrWeight")
+                if weightText then
+                    weightText:Hide()
+                end
+            end
+        end
+    end
+end
+
 -- Initialize
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+frame:RegisterEvent("SPELLBOOK_UPDATE")
 frame:SetScript("OnEvent", function()
     if event == "PLAYER_ENTERING_WORLD" then
         ACS.lastCheckTime = GetTime()
@@ -235,20 +432,31 @@ frame:SetScript("OnEvent", function()
         ACS.lastY = nil
         ACS.stationaryStartTime = GetTime()
         
+        -- Initialize saved variables
+        if not SidekickrWeights then
+            SidekickrWeights = {}
+        end
+        
         -- Scan spellbook for companions
         local numFound = ACS:ScanSpellbook()
         
         if numFound > 0 then
             DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Loaded! Found " .. numFound .. " companions. Will check every 15 minutes.")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Use /acs config to adjust companion weights.")
         else
             DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000[Sidekickr]|r Warning: No companion spells found in spellbook!")
         end
+        
+        -- Hook spellbook
+        ACS:HookSpellbook()
         
         -- Seed random number generator
         math.randomseed(GetTime())
     elseif event == "PLAYER_TARGET_CHANGED" then
         -- Cast pending companion when player changes target (hardware event)
         ACS:CastPendingCompanion()
+    elseif event == "SPELLBOOK_UPDATE" then
+        ACS:UpdateSpellbookOverlays()
     end
 end)
 
@@ -258,11 +466,14 @@ SLASH_AUTOCOMPANION2 = "/autocompanion"
 SlashCmdList["AUTOCOMPANION"] = function(msg)
     if msg == "summon" or msg == "test" then
         ACS:SummonRandomCompanion()
+    elseif msg == "config" or msg == "weights" or msg == "ui" then
+        ACS:ShowConfigUI()
     elseif msg == "scan" then
         local numFound = ACS:ScanSpellbook()
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Found " .. numFound .. " companion spells:")
         for i, name in ipairs(ACS.companions) do
-            DEFAULT_CHAT_FRAME:AddMessage("  " .. i .. ". " .. name)
+            local weight = SidekickrWeights[name] or ACS.DEFAULT_WEIGHT
+            DEFAULT_CHAT_FRAME:AddMessage("  " .. i .. ". " .. name .. " (weight: " .. string.format("%.1f", weight) .. ")")
         end
     elseif msg == "check" then
         local canSummon = ACS:CanSummon()
@@ -279,6 +490,7 @@ SlashCmdList["AUTOCOMPANION"] = function(msg)
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Commands:")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs summon - Manually summon a random companion")
+        DEFAULT_CHAT_FRAME:AddMessage("  /acs config - Open weight configuration UI")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs scan - Scan spellbook and list found companions")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs check - Check current status")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs reset - Reset the 15-minute timer")
