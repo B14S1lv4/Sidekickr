@@ -34,6 +34,62 @@ ACS.pendingCompanion = nil  -- Companion waiting to be summoned on next target c
 -- Frame for events and updates
 local frame = CreateFrame("Frame")
 
+-- Scan spellbook for companion spells
+function ACS:ScanSpellbook()
+    self.companions = {}
+    
+    -- Get the number of spell tabs
+    local numTabs = GetNumSpellTabs()
+    
+    -- Iterate through all spell tabs
+    for tab = 1, numTabs do
+        local name, texture, offset, numSpells = GetSpellTabInfo(tab)
+        
+        -- Iterate through all spells in this tab
+        for i = 1, numSpells do
+            local spellIndex = offset + i
+            local spellName, spellRank = GetSpellName(spellIndex, BOOKTYPE_SPELL)
+            
+            if spellName then
+                -- Get spell texture to help identify companions
+                local spellTexture = GetSpellTexture(spellIndex, BOOKTYPE_SPELL)
+                
+                -- Check if this is a companion spell
+                -- Companions typically have "Summon" in the name or are in a specific category
+                -- We'll look for spells that match your known companion names or patterns
+                local isCompanion = false
+                
+                -- Check against known companion names (for validation)
+                local knownCompanions = {
+                    "Baby Shark",
+                    "Blitzen",
+                    "Hawksbill Snapjaw",
+                    "Hadwig",
+                    "Loggerhead Snapjaw",
+                    "Moonkin Hatchling",
+                    "Olive Snapjaw",
+                    "Wally",
+                    "Webwood Hatchling"
+                }
+                
+                for _, knownName in ipairs(knownCompanions) do
+                    if spellName == knownName then
+                        isCompanion = true
+                        break
+                    end
+                end
+                
+                -- Add to companions list if identified
+                if isCompanion then
+                    table.insert(self.companions, spellName)
+                end
+            end
+        end
+    end
+    
+    return table.getn(self.companions)
+end
+
 -- Check if player is in an instance
 function ACS:IsInInstance()
     -- Check if player is in an instance/raid/battleground
@@ -187,7 +243,15 @@ frame:SetScript("OnEvent", function()
         ACS.lastX = nil
         ACS.lastY = nil
         ACS.stationaryStartTime = GetTime()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Loaded! Will check every 15 minutes.")
+        
+        -- Scan spellbook for companions
+        local numFound = ACS:ScanSpellbook()
+        
+        if numFound > 0 then
+            DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Loaded! Found " .. numFound .. " companions. Will check every 15 minutes.")
+        else
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFFF0000[Sidekickr]|r Warning: No companion spells found in spellbook!")
+        end
         
         -- Seed random number generator
         math.randomseed(GetTime())
@@ -203,6 +267,12 @@ SLASH_AUTOCOMPANION2 = "/autocompanion"
 SlashCmdList["AUTOCOMPANION"] = function(msg)
     if msg == "summon" or msg == "test" then
         ACS:SummonRandomCompanion()
+    elseif msg == "scan" then
+        local numFound = ACS:ScanSpellbook()
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Found " .. numFound .. " companion spells:")
+        for i, name in ipairs(ACS.companions) do
+            DEFAULT_CHAT_FRAME:AddMessage("  " .. i .. ". " .. name)
+        end
     elseif msg == "check" then
         local canSummon = ACS:CanSummon()
         local isStationary = ACS:IsStationary()
@@ -218,6 +288,7 @@ SlashCmdList["AUTOCOMPANION"] = function(msg)
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Commands:")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs summon - Manually summon a random companion")
+        DEFAULT_CHAT_FRAME:AddMessage("  /acs scan - Scan spellbook and list found companions")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs check - Check current status")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs reset - Reset the 15-minute timer")
     end

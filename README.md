@@ -10,7 +10,9 @@ A World of Warcraft Classic addon for Turtle WoW that automatically summons a ra
 - ✅ Works while mounted
 - ✅ Dismisses previous companion before summoning new one
 
-## Companion List
+## Companion Detection
+
+The addon automatically scans your spellbook for companion spells when you log in. It currently recognizes:
 
 - Baby Shark
 - Blitzen
@@ -21,6 +23,8 @@ A World of Warcraft Classic addon for Turtle WoW that automatically summons a ra
 - Olive Snapjaw
 - Wally
 - Webwood Hatchling
+
+Use `/acs scan` to manually rescan your spellbook and see which companions were found.
 
 ## Installation
 
@@ -48,7 +52,8 @@ A World of Warcraft Classic addon for Turtle WoW that automatically summons a ra
 ## Commands
 
 - `/acs` or `/autocompanion` - Show help
-- `/acs summon` - Manually summon a random companion
+- `/acs summon` - Manually summon a random companion (change targets to cast)
+- `/acs scan` - Scan spellbook and list all found companions
 - `/acs check` - Check current status (stationary, can summon, retry mode)
 - `/acs reset` - Reset the 15-minute timer (forces check on next interval)
 
