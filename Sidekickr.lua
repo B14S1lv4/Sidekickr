@@ -13,7 +13,8 @@ ACS.companions = {
     "Moonkin Hatchling",
     "Olive Snapjaw",
     "Wally",
-    "Webwood Hatchling"
+    "Webwood Hatchling",
+    "Mini Krampus"
 }
 
 -- Configuration
@@ -106,7 +107,7 @@ function ACS:SummonRandomCompanion()
     
     -- Wait a brief moment for dismissal to process
     -- Then summon new companion
-    local randomIndex = math.random(1, #self.companions)
+    local randomIndex = math.random(1, table.getn(self.companions))
     local companionName = self.companions[randomIndex]
     
     -- Use CallCompanion or CastSpellByName depending on how companions work
@@ -198,6 +199,9 @@ SlashCmdList["AUTOCOMPANION"] = function(msg)
         ACS.lastCheckTime = GetTime() - ACS.MAIN_CHECK_INTERVAL
         ACS.isRetryMode = false
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion]|r Timer reset!")
+    elseif msg == "dismiss" then
+        ACS:DismissCompanion()
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion]|r Companion dismissed!")
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion Summoner]|r Commands:")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs summon - Manually summon a random companion")

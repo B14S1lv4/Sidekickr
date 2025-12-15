@@ -4,4 +4,4 @@
 ## Author: YourName
 ## Version: 1.0
 
-AutoCompanionSummoner.lua
+Sidekickr.lua
