@@ -81,39 +81,15 @@ function ACS:IsStationary()
     return stationaryDuration >= self.STATIONARY_TIME
 end
 
--- Dismiss current companion
-function ACS:DismissCompanion()
-    -- In Classic WoW, companions are dismissed by right-clicking the buff
-    -- We need to iterate through buffs and find the companion
-    local i = 1
-    while UnitBuff("player", i) do
-        local name, _, _, _, _, _, _, _, _, spellId = UnitBuff("player", i)
-        -- Check if this buff is from one of our companions
-        for _, companionName in ipairs(self.companions) do
-            if name == companionName then
-                CancelPlayerBuff(i - 1)  -- CancelPlayerBuff uses 0-based index
-                return true
-            end
-        end
-        i = i + 1
-    end
-    return false
-end
-
 -- Summon a random companion
 function ACS:SummonRandomCompanion()
-    -- Dismiss current companion first
-    self:DismissCompanion()
-    
-    -- Wait a brief moment for dismissal to process
-    -- Then summon new companion
+    -- Summoning a new companion automatically dismisses the old one
     local randomIndex = math.random(1, table.getn(self.companions))
     local companionName = self.companions[randomIndex]
     
-    -- Use CallCompanion or CastSpellByName depending on how companions work
     CastSpellByName(companionName)
     
-    DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion]|r Summoned: " .. companionName)
+    DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Summoned: " .. companionName)
 end
 
 -- Main check function
@@ -123,7 +99,7 @@ function ACS:DoCheck()
         -- Enter retry mode
         if not self.isRetryMode then
             self.isRetryMode = true
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFFFFF00[Auto Companion]|r Conditions not met, will retry every 15 seconds...")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFFFFF00[Sidekickr]|r Conditions not met, will retry every 15 seconds...")
         end
         return false
     end
@@ -133,7 +109,7 @@ function ACS:DoCheck()
         -- Enter retry mode
         if not self.isRetryMode then
             self.isRetryMode = true
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFFFFF00[Auto Companion]|r Not stationary, will retry every 15 seconds...")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFFFFF00[Sidekickr]|r Not stationary, will retry every 15 seconds...")
         end
         return false
     end
@@ -175,7 +151,7 @@ frame:SetScript("OnEvent", function()
         ACS.lastX = nil
         ACS.lastY = nil
         ACS.stationaryStartTime = GetTime()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion Summoner]|r Loaded! Will check every 15 minutes.")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Loaded! Will check every 15 minutes.")
         
         -- Seed random number generator
         math.randomseed(GetTime())
@@ -191,19 +167,17 @@ SlashCmdList["AUTOCOMPANION"] = function(msg)
     elseif msg == "check" then
         local canSummon = ACS:CanSummon()
         local isStationary = ACS:IsStationary()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion]|r Status:")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Status:")
         DEFAULT_CHAT_FRAME:AddMessage("  Can Summon: " .. tostring(canSummon))
         DEFAULT_CHAT_FRAME:AddMessage("  Is Stationary: " .. tostring(isStationary))
         DEFAULT_CHAT_FRAME:AddMessage("  Retry Mode: " .. tostring(ACS.isRetryMode))
     elseif msg == "reset" then
         ACS.lastCheckTime = GetTime() - ACS.MAIN_CHECK_INTERVAL
         ACS.isRetryMode = false
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion]|r Timer reset!")
-    elseif msg == "dismiss" then
-        ACS:DismissCompanion()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion]|r Companion dismissed!")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Timer reset!")
+
     else
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Auto Companion Summoner]|r Commands:")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Commands:")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs summon - Manually summon a random companion")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs check - Check current status")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs reset - Reset the 15-minute timer")
