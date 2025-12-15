@@ -28,6 +28,7 @@ ACS.lastY = nil
 ACS.lastCheckTime = 0
 ACS.isRetryMode = false
 ACS.stationaryStartTime = nil
+ACS.currentCompanion = nil  -- Track currently summoned companion
 
 -- Frame for events and updates
 local frame = CreateFrame("Frame")
@@ -84,10 +85,28 @@ end
 -- Summon a random companion
 function ACS:SummonRandomCompanion()
     -- Summoning a new companion automatically dismisses the old one
-    local randomIndex = math.random(1, table.getn(self.companions))
-    local companionName = self.companions[randomIndex]
+    -- BUT if we summon the same one, it dismisses it instead!
+    -- So we need to pick a different companion than the current one
+    
+    local availableCompanions = {}
+    for _, companionName in ipairs(self.companions) do
+        if companionName ~= self.currentCompanion then
+            table.insert(availableCompanions, companionName)
+        end
+    end
+    
+    -- If no available companions (shouldn't happen with 9 companions), use all
+    if table.getn(availableCompanions) == 0 then
+        availableCompanions = self.companions
+    end
+    
+    local randomIndex = math.random(1, table.getn(availableCompanions))
+    local companionName = availableCompanions[randomIndex]
     
     CastSpellByName(companionName)
+    
+    -- Update current companion
+    self.currentCompanion = companionName
     
     DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Summoned: " .. companionName)
 end
