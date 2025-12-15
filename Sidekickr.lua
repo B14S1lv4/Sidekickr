@@ -131,7 +131,7 @@ function ACS:IsStationary()
 end
 
 -- Summon a random companion
-function ACS:SummonRandomCompanion()
+function ACS:SummonRandomCompanion(force)
     -- Summoning a new companion automatically dismisses the old one
     -- BUT if we summon the same one, it dismisses it instead!
     -- So we need to pick a different companion than the current one
@@ -154,6 +154,13 @@ function ACS:SummonRandomCompanion()
     -- Can't cast directly - requires hardware event
     -- Set pending companion to be cast on next target change
     self.pendingCompanion = companionName
+
+    if force then
+        -- If forced, cast immediately (for testing)
+        self:CastPendingCompanion()
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Summon: " .. companionName .. " (forced)")
+        return
+    end
     
     DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Ready to summon: " .. companionName .. " (change targets to cast)")
 end
@@ -197,7 +204,7 @@ function ACS:DoCheck()
     end
     
     -- All conditions met, summon!
-    self:SummonRandomCompanion()
+    self:SummonRandomCompanion(false)
     
     -- Reset to main timer
     self.isRetryMode = false
@@ -257,7 +264,9 @@ SLASH_AUTOCOMPANION1 = "/acs"
 SLASH_AUTOCOMPANION2 = "/autocompanion"
 SlashCmdList["AUTOCOMPANION"] = function(msg)
     if msg == "summon" or msg == "test" then
-        ACS:SummonRandomCompanion()
+        ACS:SummonRandomCompanion(true)
+    elseif msg == "queue" then
+        ACS:SummonRandomCompanion(false)
     elseif msg == "scan" then
         local numFound = ACS:ScanSpellbook()
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Found " .. numFound .. " companion spells:")
@@ -279,6 +288,7 @@ SlashCmdList["AUTOCOMPANION"] = function(msg)
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[Sidekickr]|r Commands:")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs summon - Manually summon a random companion")
+        DEFAULT_CHAT_FRAME:AddMessage("  /acs queue - Queue companion to summon on next target change")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs scan - Scan spellbook and list found companions")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs check - Check current status")
         DEFAULT_CHAT_FRAME:AddMessage("  /acs reset - Reset the 15-minute timer")
